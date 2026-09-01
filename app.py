@@ -3,7 +3,6 @@ import gradio as gr
 from google import genai
 from pypdf import PdfReader
 
-# Gemini Client Setup
 api_key = os.environ.get("GEMINI_API_KEY")
 client = genai.Client(api_key=api_key)
 
@@ -35,8 +34,13 @@ def analyze_career_profile(user_skills_text):
     )
     return response.text
 
-def gradio_career_advisor(experience, career_gap, field, desired_role, pdf_file):
+def gradio_career_advisor(experience, career_gap, field, desired_role, pdf_file, progress=gr.Progress()):
+    progress(0.3, desc="⏳ Reading Resume PDF...")
     pdf_text = extract_text_from_pdf(pdf_file)
+    
+    if not pdf_text.strip():
+        return "⚠️ Kripya apna Resume PDF upload karein."
+
     combined_input = f"""
     Years of Experience: {experience}
     Career Gap Duration: {career_gap}
@@ -46,10 +50,12 @@ def gradio_career_advisor(experience, career_gap, field, desired_role, pdf_file)
     --- RESUME DETAILS ---
     {pdf_text}
     """
-    if not pdf_text.strip():
-        return "⚠️ Kripya apna Resume PDF upload karein."
-
-    return analyze_career_profile(combined_input)
+    
+    progress(0.7, desc="✨ Analyzing profile with Gemini AI...")
+    result = analyze_career_profile(combined_input)
+    progress(1.0, desc="✅ Advice Generated!")
+    
+    return result
 
 custom_theme = gr.themes.Soft(primary_hue="purple", secondary_hue="pink")
 
