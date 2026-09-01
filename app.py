@@ -29,13 +29,12 @@ def analyze_career_profile(user_skills_text):
     Keep the response clear, encouraging, and structured with headings.
     """
     response = client.models.generate_content(
-        model="gemini-3-flash-preview",
+        model="gemini-2.5-flash",
         contents=prompt
     )
     return response.text
 
-def gradio_career_advisor(experience, career_gap, field, desired_role, pdf_file, progress=gr.Progress()):
-    progress(0.3, desc="⏳ Reading Resume PDF...")
+def gradio_career_advisor(experience, career_gap, field, desired_role, pdf_file):
     pdf_text = extract_text_from_pdf(pdf_file)
     
     if not pdf_text.strip():
@@ -51,11 +50,7 @@ def gradio_career_advisor(experience, career_gap, field, desired_role, pdf_file,
     {pdf_text}
     """
     
-    progress(0.7, desc="✨ Analyzing profile with Gemini AI...")
-    result = analyze_career_profile(combined_input)
-    progress(1.0, desc="✅ Advice Generated!")
-    
-    return result
+    return analyze_career_profile(combined_input)
 
 custom_theme = gr.themes.Soft(primary_hue="purple", secondary_hue="pink")
 
@@ -72,8 +67,10 @@ with gr.Blocks(title="CareerBridge AI", theme=custom_theme) as demo:
         
     pdf_input = gr.File(label="📄 Resume Upload (PDF only)", file_types=[".pdf"])
     submit_btn = gr.Button("✨ Get My Career Advice", variant="primary")
+    
     output = gr.Markdown(label="Career Advice")
     
+    # Event trigger with built-in loading animation
     submit_btn.click(
         fn=gradio_career_advisor,
         inputs=[experience, career_gap, field, desired_role, pdf_input],
