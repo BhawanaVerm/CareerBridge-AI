@@ -88,31 +88,33 @@ custom_css = """
     box-shadow: 0 8px 24px rgba(124, 58, 237, 0.25);
 }
 
-#theme-toggle-btn {
+#theme-toggle-wrap {
     position: absolute !important;
     top: 16px;
     right: 16px;
     z-index: 50 !important;
-    width: auto !important;
+}
+#theme-toggle-wrap button {
     background: rgba(255,255,255,0.15) !important;
     border: 1px solid rgba(255,255,255,0.4) !important;
     color: #ffffff !important;
     border-radius: 20px !important;
     padding: 8px 18px !important;
     font-size: 0.85em !important;
-    box-shadow: none !important;
-    touch-action: manipulation;
-    pointer-events: auto !important;
+    font-family: inherit;
     cursor: pointer !important;
+    touch-action: manipulation;
 }
-#theme-toggle-btn:hover {
+#theme-toggle-wrap button:hover {
     background: rgba(255,255,255,0.28) !important;
 }
 
 @media (max-width: 768px) {
-    #theme-toggle-btn {
+    #theme-toggle-wrap {
         top: 12px;
         right: 12px;
+    }
+    #theme-toggle-wrap button {
         padding: 10px 16px !important;
     }
 }
@@ -169,16 +171,26 @@ custom_css = """
     background: var(--background-fill-primary);
     color: var(--body-text-color);
     border-radius: 16px;
-    padding: 20px 22px;
+    padding: 20px 22px 8px 22px;
     box-shadow: 0 2px 14px rgba(0,0,0,0.08);
     border: 1px solid var(--border-color-primary);
-    min-height: 200px;
+    display: flex;
+    flex-direction: column;
     max-height: calc(100vh - 36px);
-    overflow-y: auto;
+    overflow: hidden;
 }
-#output-card h4 {
-    margin-top: 0 !important;
+#output-heading {
+    flex-shrink: 0;
+    margin-bottom: 4px;
+}
+#output-heading h4 {
+    margin: 0 !important;
     color: #a855f7;
+}
+#output-scroll {
+    overflow-y: auto;
+    min-height: 180px;
+    padding-bottom: 16px;
 }
 
 #footer-note {
@@ -192,7 +204,11 @@ custom_css = """
 with gr.Blocks(title="CareerBridge AI", theme=custom_theme, css=custom_css) as demo:
 
     with gr.Column(elem_id="header-banner"):
-        theme_toggle_btn = gr.Button("🌙 / ☀️ Theme", elem_id="theme-toggle-btn", size="sm")
+        gr.HTML(
+            """<div id="theme-toggle-wrap">
+                <button onclick="document.documentElement.classList.toggle('dark')">🌙 / ☀️ Theme</button>
+               </div>"""
+        )
         gr.Markdown(
             """
             # 🌉 CareerBridge AI
@@ -237,8 +253,9 @@ with gr.Blocks(title="CareerBridge AI", theme=custom_theme, css=custom_css) as d
         # ---------------- RIGHT: output ----------------
         with gr.Column(scale=2, elem_id="output-column"):
             with gr.Column(elem_id="output-card"):
-                gr.Markdown("#### 💡 Your Career Advice")
-                output = gr.Markdown("Fill in your details on the left and click **Get My Career Advice** — your personalized guidance will appear here.")
+                gr.Markdown("#### 💡 Your Career Advice", elem_id="output-heading")
+                with gr.Column(elem_id="output-scroll"):
+                    output = gr.Markdown("Fill in your details on the left and click **Get My Career Advice** — your personalized guidance will appear here.")
 
     gr.Markdown("Built with ❤️ for career returners · Powered by Google Gemini", elem_id="footer-note")
 
@@ -247,17 +264,6 @@ with gr.Blocks(title="CareerBridge AI", theme=custom_theme, css=custom_css) as d
         inputs=[experience, career_gap, field, desired_role, skills_background, pdf_input],
         outputs=output,
         scroll_to_output=False
-    )
-
-    theme_toggle_btn.click(
-        fn=None,
-        inputs=None,
-        outputs=None,
-        js="""
-        () => {
-            document.documentElement.classList.toggle('dark');
-        }
-        """
     )
 
 demo.queue()
