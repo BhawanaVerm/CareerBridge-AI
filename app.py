@@ -83,8 +83,8 @@ custom_css = """
     position: relative;
     background: linear-gradient(135deg, #7c3aed 0%, #db2777 100%);
     border-radius: 18px;
-    padding: 28px 32px;
-    margin-bottom: 22px;
+    padding: 22px 30px;
+    margin-bottom: 18px;
     box-shadow: 0 8px 24px rgba(124, 58, 237, 0.25);
 }
 
@@ -92,17 +92,29 @@ custom_css = """
     position: absolute !important;
     top: 16px;
     right: 16px;
+    z-index: 50 !important;
     width: auto !important;
     background: rgba(255,255,255,0.15) !important;
     border: 1px solid rgba(255,255,255,0.4) !important;
     color: #ffffff !important;
     border-radius: 20px !important;
-    padding: 6px 16px !important;
+    padding: 8px 18px !important;
     font-size: 0.85em !important;
     box-shadow: none !important;
+    touch-action: manipulation;
+    pointer-events: auto !important;
+    cursor: pointer !important;
 }
 #theme-toggle-btn:hover {
     background: rgba(255,255,255,0.28) !important;
+}
+
+@media (max-width: 768px) {
+    #theme-toggle-btn {
+        top: 12px;
+        right: 12px;
+        padding: 10px 16px !important;
+    }
 }
 #header-banner h1, #header-banner h3, #header-banner p {
     color: #ffffff !important;
@@ -119,8 +131,8 @@ custom_css = """
     background: var(--background-fill-primary);
     color: var(--body-text-color);
     border-radius: 16px;
-    padding: 18px 22px;
-    margin-bottom: 16px;
+    padding: 14px 20px;
+    margin-bottom: 14px;
     box-shadow: 0 2px 10px rgba(0,0,0,0.06);
     border: 1px solid var(--border-color-primary);
 }
@@ -157,10 +169,10 @@ custom_css = """
     background: var(--background-fill-primary);
     color: var(--body-text-color);
     border-radius: 16px;
-    padding: 22px 24px;
+    padding: 20px 22px;
     box-shadow: 0 2px 14px rgba(0,0,0,0.08);
     border: 1px solid var(--border-color-primary);
-    min-height: 320px;
+    min-height: 200px;
     max-height: calc(100vh - 36px);
     overflow-y: auto;
 }
@@ -233,7 +245,8 @@ with gr.Blocks(title="CareerBridge AI", theme=custom_theme, css=custom_css) as d
     submit_btn.click(
         fn=gradio_career_advisor,
         inputs=[experience, career_gap, field, desired_role, skills_background, pdf_input],
-        outputs=output
+        outputs=output,
+        scroll_to_output=False
     )
 
     theme_toggle_btn.click(
