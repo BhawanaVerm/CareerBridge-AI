@@ -116,12 +116,16 @@ custom_css = """
 #header-banner p { opacity: 0.9; margin: 0 !important; }
 
 .card-section {
-    background: white;
+    background: var(--background-fill-primary);
+    color: var(--body-text-color);
     border-radius: 16px;
     padding: 18px 22px;
     margin-bottom: 16px;
     box-shadow: 0 2px 10px rgba(0,0,0,0.06);
-    border: 1px solid #f0e6fa;
+    border: 1px solid var(--border-color-primary);
+}
+.card-section h4, .card-section p, .card-section span {
+    color: var(--body-text-color) !important;
 }
 
 .section-title { font-weight: 600 !important; margin-bottom: 4px !important; }
@@ -147,18 +151,22 @@ custom_css = """
     position: sticky;
     top: 18px;
     align-self: flex-start;
+    max-height: calc(100vh - 36px);
 }
 #output-card {
-    background: white;
+    background: var(--background-fill-primary);
+    color: var(--body-text-color);
     border-radius: 16px;
     padding: 22px 24px;
     box-shadow: 0 2px 14px rgba(0,0,0,0.08);
-    border: 1px solid #f0e6fa;
+    border: 1px solid var(--border-color-primary);
     min-height: 320px;
+    max-height: calc(100vh - 36px);
+    overflow-y: auto;
 }
 #output-card h4 {
     margin-top: 0 !important;
-    color: #7c3aed;
+    color: #a855f7;
 }
 
 #footer-note {
