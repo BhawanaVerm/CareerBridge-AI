@@ -1,5 +1,6 @@
 import os
 import gradio as gr
+import time
 from google import genai
 from pypdf import PdfReader
 
@@ -53,7 +54,7 @@ def extract_resume_text(pdf_file):
 
 
 # ============================================================
-# GEMINI CAREER ANALYSIS
+# GEMINI CAREER ANALYSIS (WITH RETRY & FALLBACK MECHANISM)
 # ============================================================
 
 def analyze_career_profile(
@@ -211,36 +212,28 @@ Use simple, clear English.
 Be supportive but realistic.
 """
 
-    try:
+    # Retry mechanism and Fallback Models to handle temporary 503 high demand API errors
+    models_to_try = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+    last_error = ""
 
-        response = client.models.generate_content(
-            model="gemini-3.6-flash",
-            contents=prompt
-        )
+    for model in models_to_try:
+        for attempt in range(2):  # Try twice per model
+            try:
+                response = client.models.generate_content(
+                    model=model,
+                    contents=prompt
+                )
+                if response and response.text:
+                    return response.text
+            except Exception as e:
+                time.sleep(1)  # Brief wait before retry
+                last_error = str(e)
 
-        if response is None:
-            return (
-                "⚠️ Gemini did not return a response. "
-                "Please try again."
-            )
-
-        result = response.text
-
-        if not result:
-            return (
-                "⚠️ Gemini returned an empty response. "
-                "Please try again."
-            )
-
-        return result
-
-    except Exception as e:
-
-        return (
-            "## ⚠️ Unable to generate career analysis\n\n"
-            f"**Error:** {str(e)}\n\n"
-            "Please check your Gemini API configuration and try again."
-        )
+    return (
+        "## ⚠️ Server is currently experiencing high demand\n\n"
+        f"**Error:** {last_error}\n\n"
+        "Please click the button again in a few moments."
+    )
 
 
 # ============================================================
@@ -677,16 +670,34 @@ html.careerbridge-dark #compact-upload {
 
 
 /* ============================================================
-   TABS
+   TABS FIX FOR MOBILE (PREVENTS '...' OVERFLOW)
    ============================================================ */
+
+.gradio-container div[role="tablist"] {
+
+    display: flex !important;
+
+    flex-wrap: nowrap !important;
+
+    width: 100% !important;
+
+    overflow: visible !important;
+}
 
 .gradio-container [role="tab"] {
 
     font-size: 13px !important;
 
     font-weight: 650 !important;
-}
 
+    padding: 6px 10px !important;
+
+    flex: 1 1 50% !important;
+
+    text-align: center !important;
+
+    white-space: nowrap !important;
+}
 
 html.careerbridge-dark
 .gradio-container [role="tab"] {
@@ -951,6 +962,13 @@ html.careerbridge-dark #footer-note {
         font-size: 11px !important;
     }
 
+    /* Mobile specific Tabs layout */
+    .gradio-container [role="tab"] {
+
+        font-size: 11px !important;
+
+        padding: 5px 6px !important;
+    }
 
     #compact-upload {
 
@@ -1036,6 +1054,13 @@ html.careerbridge-dark #footer-note {
             9px !important;
 
         font-size: 10px !important;
+    }
+
+    .gradio-container [role="tab"] {
+
+        font-size: 10px !important;
+
+        padding: 4px 4px !important;
     }
 }
 
