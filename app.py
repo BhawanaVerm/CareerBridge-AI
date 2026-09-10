@@ -1,5 +1,4 @@
 import os
-import time
 import gradio as gr
 from google import genai
 from pypdf import PdfReader
@@ -24,19 +23,24 @@ client = genai.Client(api_key=API_KEY)
 # ============================================================
 
 def extract_resume_text(pdf_file):
+
     if not pdf_file:
         return ""
 
     try:
-        # gr.File(type="filepath") returns a string filepath.
-        # This also supports file-like objects safely.
-        pdf_path = pdf_file if isinstance(pdf_file, str) else pdf_file.name
+        # gr.File(type="filepath") returns a filepath string
+        pdf_path = (
+            pdf_file
+            if isinstance(pdf_file, str)
+            else pdf_file.name
+        )
 
         reader = PdfReader(pdf_path)
 
         text_parts = []
 
         for page in reader.pages:
+
             page_text = page.extract_text()
 
             if page_text:
@@ -53,7 +57,10 @@ def extract_resume_text(pdf_file):
         return text
 
     except Exception as e:
-        return f"⚠️ Unable to read the PDF: {str(e)}"
+
+        return (
+            f"⚠️ Unable to read the PDF: {str(e)}"
+        )
 
 
 # ============================================================
@@ -69,112 +76,131 @@ def analyze_career_profile(
     resume_text
 ):
 
-    resume_section = (
-        f"\nRESUME CONTENT:\n----------------\n{resume_text}\n"
-        if resume_text
-        else ""
-    )
+    resume_section = ""
 
-    background_section = (
-        f"\nUSER'S ADDITIONAL BACKGROUND:\n------------------------------\n"
-        f"{background}\n"
-        if background
-        else ""
-    )
+    if resume_text:
+        resume_section = f"""
+RESUME CONTENT:
+----------------
+{resume_text}
+"""
+
+
+    background_section = ""
+
+    if background:
+        background_section = f"""
+USER'S ADDITIONAL BACKGROUND:
+------------------------------
+{background}
+"""
+
 
     prompt = f"""
 You are CareerBridge AI, an experienced career advisor.
 
-Your purpose is to help professionals who are returning to work after a career break.
-Analyze the candidate's profile realistically and provide practical, encouraging and honest career guidance.
+Your purpose is to help professionals who are returning to work
+after a career break.
+
+Analyze the candidate's profile realistically and provide
+practical, encouraging and honest career guidance.
+
 Do NOT give generic motivational advice.
 
 Candidate information:
+
 Total Experience: {experience}
+
 Career Gap: {career_gap}
+
 Current / Previous Field: {field}
+
 Desired Role: {desired_role}
+
 {background_section}
+
 {resume_section}
 
 Please provide your answer using the following structure:
+
 ## 1. Career Profile Summary
+
 ## 2. Strengths
+
 ## 3. Career Gap Impact
+
 ## 4. Suitable Job Roles
+
 ## 5. Skill Gap
+
 ### Already Useful
+
 ### Need Improvement
+
 ### Optional / Future
+
 ## 6. 30-Day Action Plan
+
 ## 7. Resume Suggestions
+
 ## 8. Interview Preparation
+
 ## 9. Job Search Strategy
+
 ## 10. Final Recommendation
 
-Use simple, clear English. Be supportive but realistic.
+Use simple, clear English.
+
+Be supportive but realistic.
 """
 
-    # ========================================================
-    # CURRENT STABLE GEMINI MODELS
-    # ========================================================
-    #
-    # gemini-2.0-flash is no longer available.
-    #
-    # Primary:
-    # gemini-2.5-flash
-    #
-    # Fallback:
-    # gemini-2.5-flash-lite
-    #
-    # ========================================================
 
-    models_to_try = [
-        "gemini-2.5-flash",
-        "gemini-2.5-flash-lite",
-    ]
+    try:
 
-    errors = []
+        # ====================================================
+        # CURRENT GEMINI MODEL
+        # ====================================================
+        #
+        # gemini-2.5-flash:
+        # Not available to many new users
+        #
+        # gemini-2.5-flash-lite:
+        # Can return 503 during high demand
+        #
+        # Using current stable Gemini 3.6 Flash
+        # ====================================================
 
-    for model_name in models_to_try:
-
-        try:
-
-            response = client.models.generate_content(
-                model=model_name,
-                contents=prompt
-            )
-
-            if response and response.text:
-                return response.text
-
-            errors.append(
-                f"{model_name}: Empty response from Gemini."
-            )
-
-        except Exception as e:
-
-            errors.append(
-                f"{model_name}: {str(e)}"
-            )
-
-            time.sleep(0.5)
-
-    # ========================================================
-    # SHOW ALL MODEL ERRORS
-    # ========================================================
-
-    return (
-        "## ⚠️ API Connection Error\n\n"
-        "Gemini could not generate the career analysis.\n\n"
-        "**Model/API details:**\n\n"
-        + "\n\n".join(
-            f"- {error}" for error in errors
+        interaction = client.interactions.create(
+            model="gemini-3.6-flash",
+            input=prompt
         )
-        + "\n\n"
-        "Please check that GEMINI_API_KEY is valid and that "
-        "the Gemini API is enabled for this key/project."
-    )
+
+        response_text = getattr(
+            interaction,
+            "output_text",
+            None
+        )
+
+        if response_text and response_text.strip():
+            return response_text
+
+
+        return (
+            "## ⚠️ Gemini Response Error\n\n"
+            "Gemini returned an empty response. "
+            "Please click **Analyze My Career** again."
+        )
+
+
+    except Exception as e:
+
+        return (
+            "## ⚠️ API Connection Error\n\n"
+            "Gemini could not generate the career analysis.\n\n"
+            f"**Error Details:** {str(e)}\n\n"
+            "Please check the Gemini API configuration "
+            "and try again."
+        )
 
 
 # ============================================================
@@ -192,12 +218,22 @@ def gradio_career_advisor(
 
     resume_text = ""
 
+
+    # ========================================================
+    # EXTRACT RESUME TEXT
+    # ========================================================
+
     if resume_file:
 
         resume_text = extract_resume_text(resume_file)
 
         if resume_text.startswith("⚠️"):
             return resume_text
+
+
+    # ========================================================
+    # CHECK PROFILE INFORMATION
+    # ========================================================
 
     if (
         not experience
@@ -209,8 +245,14 @@ def gradio_career_advisor(
 
         return (
             "## ⚠️ Profile Information Missing\n\n"
-            "Please enter your career details or upload a PDF resume first."
+            "Please enter your career details or "
+            "upload a PDF resume first."
         )
+
+
+    # ========================================================
+    # ANALYZE PROFILE
+    # ========================================================
 
     return analyze_career_profile(
         experience=experience,
@@ -223,7 +265,7 @@ def gradio_career_advisor(
 
 
 # ============================================================
-# STABLE CSS & RESPONSIVE LAYOUT
+# CLEAN LIGHT + DARK THEME CSS
 # ============================================================
 
 custom_css = """
@@ -240,6 +282,66 @@ custom_css = """
 
 
 /* ============================================================
+   LIGHT MODE
+   PURE WHITE BACKGROUND + BLACK TEXT
+   ============================================================ */
+
+html,
+body {
+    background: #ffffff !important;
+}
+
+.gradio-container {
+    background: #ffffff !important;
+    color: #000000 !important;
+}
+
+
+/* Main cards */
+
+.gr-group,
+.gr-box,
+.block,
+form {
+    background: #ffffff !important;
+    color: #000000 !important;
+}
+
+
+/* All text */
+
+.gradio-container h1,
+.gradio-container h2,
+.gradio-container h3,
+.gradio-container h4,
+.gradio-container p,
+.gradio-container span,
+.gradio-container label,
+.gradio-container .prose,
+.gradio-container .gr-markdown {
+    color: #000000 !important;
+}
+
+
+/* Inputs */
+
+.gradio-container input,
+.gradio-container textarea {
+    background: #ffffff !important;
+    color: #000000 !important;
+    border-color: #d1d5db !important;
+}
+
+
+/* Placeholder */
+
+.gradio-container input::placeholder,
+.gradio-container textarea::placeholder {
+    color: #6b7280 !important;
+}
+
+
+/* ============================================================
    HEADER
    ============================================================ */
 
@@ -247,8 +349,11 @@ custom_css = """
     display: flex !important;
     justify-content: space-between !important;
     align-items: center !important;
+
     padding: 14px 20px !important;
+
     border-radius: 12px !important;
+
     margin-bottom: 12px !important;
 
     background: linear-gradient(
@@ -272,7 +377,7 @@ custom_css = """
 #header-text p {
     font-size: 12px !important;
     margin: 2px 0 0 0 !important;
-    color: rgba(255, 255, 255, 0.9) !important;
+    color: white !important;
 }
 
 
@@ -281,13 +386,13 @@ custom_css = """
    ============================================================ */
 
 #theme-toggle-btn {
-    background: rgba(255, 255, 255, 0.2) !important;
+    background: rgba(255, 255, 255, 0.20) !important;
 
     border: 1px solid rgba(
         255,
         255,
         255,
-        0.4
+        0.50
     ) !important;
 
     color: white !important;
@@ -307,7 +412,7 @@ custom_css = """
 
 
 /* ============================================================
-   OUTPUT
+   OUTPUT BOX
    ============================================================ */
 
 #output-box {
@@ -318,8 +423,16 @@ custom_css = """
     overflow-y: auto !important;
 
     padding: 12px !important;
+
+    background: #ffffff !important;
+
+    color: #000000 !important;
 }
 
+
+/* ============================================================
+   ANALYZE BUTTON
+   ============================================================ */
 
 #analyze-button {
     min-height: 44px !important;
@@ -332,131 +445,106 @@ custom_css = """
 }
 
 
+/* ============================================================
+   PRIVACY NOTE
+   ============================================================ */
+
 #privacy-note {
     font-size: 11px !important;
 
     text-align: center !important;
 
     margin-top: 8px !important;
+
+    color: #000000 !important;
 }
 
 
 /* ============================================================
-   CUSTOM DARK THEME
+   DARK MODE
+   PURE BLACK BACKGROUND + WHITE TEXT
    ============================================================ */
 
-/*
-   IMPORTANT:
-
-   The old code only added a class called "dark".
-
-   Gradio does not automatically change its components
-   just because body has a "dark" class.
-
-   Therefore we use our own "cb-dark" class and explicitly
-   style the Gradio components.
-*/
-
-
 html.cb-dark,
-body.cb-dark {
-    background: #111827 !important;
+html.cb-dark body {
+    background: #000000 !important;
 }
 
 
-html.cb-dark .gradio-container,
-body.cb-dark .gradio-container {
-    background: #111827 !important;
+html.cb-dark .gradio-container {
+    background: #000000 !important;
+    color: #ffffff !important;
 }
 
 
-/* Main groups / panels */
+/* Main cards */
 
 html.cb-dark .gr-group,
 html.cb-dark .gr-box,
-html.cb-dark .gr-panel,
-html.cb-dark .gradio-group,
-html.cb-dark .gradio-tabs,
-html.cb-dark .gradio-tabitem,
-html.cb-dark .gradio-container .block {
-    background: #1f2937 !important;
+html.cb-dark .block,
+html.cb-dark form {
+    background: #000000 !important;
+    color: #ffffff !important;
 
-    color: #f3f4f6 !important;
-
-    border-color: #374151 !important;
+    border-color: #ffffff !important;
 }
 
 
-/* Text */
+/* All text */
 
-html.cb-dark label,
-html.cb-dark .label-wrap,
-html.cb-dark .gradio-markdown,
-html.cb-dark .prose,
-html.cb-dark p,
-html.cb-dark h1,
-html.cb-dark h2,
-html.cb-dark h3,
-html.cb-dark h4,
-html.cb-dark h5,
-html.cb-dark h6,
-html.cb-dark span {
-    color: #f3f4f6 !important;
+html.cb-dark .gradio-container h1,
+html.cb-dark .gradio-container h2,
+html.cb-dark .gradio-container h3,
+html.cb-dark .gradio-container h4,
+html.cb-dark .gradio-container p,
+html.cb-dark .gradio-container span,
+html.cb-dark .gradio-container label,
+html.cb-dark .gradio-container .prose,
+html.cb-dark .gradio-container .gr-markdown {
+    color: #ffffff !important;
 }
 
 
-/* Textboxes / inputs */
+/* Inputs */
 
-html.cb-dark input,
-html.cb-dark textarea,
-html.cb-dark select,
-html.cb-dark .wrap,
-html.cb-dark .file-preview,
-html.cb-dark .file-upload {
-    background: #111827 !important;
+html.cb-dark .gradio-container input,
+html.cb-dark .gradio-container textarea {
+    background: #000000 !important;
 
-    color: #f9fafb !important;
+    color: #ffffff !important;
 
-    border-color: #4b5563 !important;
+    border-color: #ffffff !important;
 }
 
 
 /* Placeholder */
 
-html.cb-dark input::placeholder,
-html.cb-dark textarea::placeholder {
-    color: #9ca3af !important;
+html.cb-dark .gradio-container input::placeholder,
+html.cb-dark .gradio-container textarea::placeholder {
+    color: #bdbdbd !important;
 }
 
 
-/* Buttons */
+/* Output */
 
-html.cb-dark button:not(#theme-toggle-btn),
-html.cb-dark .tab-nav button {
-    color: #f9fafb !important;
+html.cb-dark #output-box {
+    background: #000000 !important;
+
+    color: #ffffff !important;
 }
 
 
-/* Selected tab */
-
-html.cb-dark .tab-nav button.selected {
-    color: #c4b5fd !important;
-}
-
-
-/* Privacy text */
+/* Privacy note */
 
 html.cb-dark #privacy-note,
 html.cb-dark #privacy-note * {
-    color: #d1d5db !important;
+    color: #ffffff !important;
 }
 
 
-/* Keep purple header unchanged */
+/* Header remains purple */
 
-html.cb-dark #header-banner,
-body.cb-dark #header-banner {
-
+html.cb-dark #header-banner {
     background: linear-gradient(
         135deg,
         #6d28d9 0%,
@@ -471,6 +559,35 @@ html.cb-dark #theme-toggle-btn {
     color: white !important;
 }
 
+
+/* ============================================================
+   MOBILE RESPONSIVE
+   ============================================================ */
+
+@media (max-width: 768px) {
+
+    .gradio-container {
+        padding: 8px !important;
+    }
+
+    #header-banner {
+        padding: 12px !important;
+    }
+
+    #header-text h1 {
+        font-size: 20px !important;
+    }
+
+    #header-text p {
+        font-size: 10px !important;
+    }
+
+    #output-box {
+        min-height: 400px !important;
+        max-height: none !important;
+    }
+}
+
 """
 
 
@@ -479,13 +596,12 @@ html.cb-dark #theme-toggle-btn {
 # ============================================================
 
 custom_theme = gr.themes.Soft(
-    primary_hue="violet",
-    neutral_hue="slate"
+    primary_hue="violet"
 )
 
 
 # ============================================================
-# MAIN APP
+# CREATE APP
 # ============================================================
 
 with gr.Blocks(
@@ -532,27 +648,15 @@ with gr.Blocks(
     # ========================================================
 
     theme_btn.click(
-        None,
+        fn=None,
         inputs=None,
         outputs=None,
 
         js="""
         () => {
 
-            const html = document.documentElement;
-            const body = document.body;
-
-            const isDark =
-                !html.classList.contains("cb-dark");
-
-            html.classList.toggle(
-                "cb-dark",
-                isDark
-            );
-
-            body.classList.toggle(
-                "cb-dark",
-                isDark
+            document.documentElement.classList.toggle(
+                "cb-dark"
             );
 
         }
@@ -561,7 +665,7 @@ with gr.Blocks(
 
 
     # ========================================================
-    # MAIN LAYOUT
+    # MAIN CONTENT
     # ========================================================
 
     with gr.Row(equal_height=False):
@@ -710,11 +814,10 @@ with gr.Blocks(
 
 
     # ========================================================
-    # ANALYZE EVENT
+    # ANALYZE BUTTON EVENT
     # ========================================================
 
     analyze_button.click(
-
         fn=gradio_career_advisor,
 
         inputs=[
@@ -731,7 +834,7 @@ with gr.Blocks(
 
 
 # ============================================================
-# LAUNCH
+# RUN APP
 # ============================================================
 
 if __name__ == "__main__":
