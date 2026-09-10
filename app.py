@@ -47,7 +47,7 @@ def extract_resume_text(pdf_file):
 
 
 # ============================================================
-# GEMINI CAREER ANALYSIS (STABLE MODEL FALLBACKS)
+# GEMINI CAREER ANALYSIS
 # ============================================================
 
 def analyze_career_profile(
@@ -94,13 +94,12 @@ Please provide your answer using the following structure:
 Use simple, clear English. Be supportive but realistic.
 """
 
-    # Using robust model endpoints across GenAI API specs
+    # Verified Official Model Strings for Google GenAI SDK
     models_to_try = [
         "gemini-2.5-flash",
-        "gemini-2.0-flash",
-        "gemini-1.5-flash",
-        "gemini-1.5-pro"
+        "gemini-2.0-flash"
     ]
+    
     last_error = ""
 
     for model_name in models_to_try:
@@ -116,14 +115,14 @@ Use simple, clear English. Be supportive but realistic.
             time.sleep(0.5)
 
     return (
-        "## ⚠️ Connection Issue\n\n"
-        f"**API Response:** {last_error}\n\n"
-        "Please check your network or try clicking again in a few seconds."
+        "## ⚠️ API Connection Error\n\n"
+        f"**Error Details:** {last_error}\n\n"
+        "Please click 'Analyze My Career' again in a few moments."
     )
 
 
 # ============================================================
-# MAIN CAREER ADVISOR FUNCTION
+# MAIN CAREER ADVISOR ROUTINE
 # ============================================================
 
 def gradio_career_advisor(
@@ -142,8 +141,8 @@ def gradio_career_advisor(
 
     if not experience and not field and not desired_role and not resume_text and not background:
         return (
-            "## ⚠️ Information Required\n\n"
-            "Please provide your profile details or upload a resume to proceed."
+            "## ⚠️ Profile Information Missing\n\n"
+            "Please enter your career details or upload a PDF resume first."
         )
 
     return analyze_career_profile(
@@ -157,111 +156,72 @@ def gradio_career_advisor(
 
 
 # ============================================================
-# COMPLETE STABLE CSS FIX (PREVENTS WHITE FLASH & THEME BUG)
+# STABLE CSS & RESPONSIVE LAYOUT
 # ============================================================
 
-custom_css = r"""
-/* Page Container Alignment */
+custom_css = """
 .gradio-container {
-    max-width: 1150px !important;
+    max-width: 1100px !important;
     margin: 0 auto !important;
-    padding: 10px 12px !important;
+    padding: 10px !important;
 }
 
-/* Rigid Dark Theme State Overrides */
-html.dark, html.dark body, html.dark .gradio-container {
-    background-color: #0d1117 !important;
-    color: #e6edf3 !important;
-}
-
-html.dark .block, 
-html.dark .panel, 
-html.dark .card-section,
-html.dark #output-card,
-html.dark .gr-box,
-html.dark div[data-testid="block"] {
-    background-color: #161b22 !important;
-    border-color: #30363d !important;
-    color: #e6edf3 !important;
-}
-
-html.dark input, 
-html.dark textarea, 
-html.dark select,
-html.dark .file-preview {
-    background-color: #0d1117 !important;
-    border-color: #30363d !important;
-    color: #f0f6fc !important;
-}
-
-/* Lock Output Box to Prevent White Flashing */
-html.dark #output-scroll,
-html.dark #output-scroll * {
-    background-color: transparent !important;
-    color: #e6edf3 !important;
-}
-
-/* Header Banner & Fixed Theme Toggle */
 #header-banner {
-    position: relative !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
     padding: 14px 20px !important;
     border-radius: 12px !important;
     margin-bottom: 12px !important;
     background: linear-gradient(135deg, #6d28d9 0%, #7c3aed 100%) !important;
-    color: #ffffff !important;
+    color: white !important;
 }
 
-#header-banner h1 {
+#header-text h1 {
     font-size: 24px !important;
     margin: 0 !important;
     font-weight: 700 !important;
-    color: #ffffff !important;
+    color: white !important;
 }
 
-#header-banner p {
-    font-size: 13px !important;
+#header-text p {
+    font-size: 12px !important;
     margin: 2px 0 0 0 !important;
-    opacity: 0.92;
-    color: #ffffff !important;
+    color: rgba(255, 255, 255, 0.9) !important;
 }
 
 #theme-toggle-btn {
-    position: absolute !important;
-    top: 12px !important;
-    right: 16px !important;
     background: rgba(255, 255, 255, 0.2) !important;
     border: 1px solid rgba(255, 255, 255, 0.4) !important;
-    color: #ffffff !important;
-    padding: 5px 12px !important;
+    color: white !important;
+    padding: 6px 14px !important;
     border-radius: 20px !important;
     font-size: 12px !important;
     font-weight: 600 !important;
     cursor: pointer !important;
+    white-space: nowrap !important;
 }
 
-#output-scroll {
-    max-height: 480px !important;
+#output-box {
+    min-height: 460px !important;
+    max-height: 560px !important;
     overflow-y: auto !important;
-    padding: 6px !important;
+    padding: 12px !important;
 }
 
 #analyze-button {
-    min-height: 42px !important;
+    min-height: 44px !important;
     font-size: 15px !important;
-    font-weight: 600 !important;
-    margin-top: 6px !important;
+    font-weight: 700 !important;
+    margin-top: 8px !important;
 }
 
-#privacy-note, #footer-note {
+#privacy-note {
     font-size: 11px !important;
-    text-align: center;
-    margin-top: 6px !important;
+    text-align: center !important;
+    margin-top: 8px !important;
 }
 """
-
-# ============================================================
-# GRADIO APPLICATION BUILD
-# ============================================================
 
 custom_theme = gr.themes.Soft(
     primary_hue="violet",
@@ -270,22 +230,28 @@ custom_theme = gr.themes.Soft(
 
 with gr.Blocks(theme=custom_theme, css=custom_css, title="CareerBridge AI") as demo:
 
-    gr.HTML(
-        """
-        <div id="header-banner">
-            <button id="theme-toggle-btn" onclick="document.documentElement.classList.toggle('dark')">
-                🌙 / ☀️ Theme
-            </button>
-            <h1>CareerBridge AI</h1>
-            <p>AI-powered career guidance for professionals returning to work after a career break.</p>
-        </div>
+    with gr.Row(elem_id="header-banner"):
+        with gr.Column(scale=8, min_width=200, elem_id="header-text"):
+            gr.HTML(
+                "<h1>CareerBridge AI</h1>"
+                "<p>AI-powered career guidance for professionals returning to work after a career break.</p>"
+            )
+        with gr.Column(scale=2, min_width=100):
+            theme_btn = gr.Button("🌙 / ☀️ Theme", elem_id="theme-toggle-btn")
+
+    theme_btn.click(
+        None,
+        js="""
+        () => {
+            document.body.classList.toggle('dark');
+            document.documentElement.classList.toggle('dark');
+        }
         """
     )
 
     with gr.Row(equal_height=False):
-        # LEFT COLUMN: INPUTS
         with gr.Column(scale=3):
-            with gr.Group(elem_classes="card-section"):
+            with gr.Group():
                 gr.Markdown("### 👤 Your Career Profile")
                 with gr.Row():
                     experience = gr.Textbox(
@@ -310,7 +276,7 @@ with gr.Blocks(theme=custom_theme, css=custom_css, title="CareerBridge AI") as d
                         lines=1
                     )
 
-            with gr.Group(elem_classes="card-section"):
+            with gr.Group():
                 gr.Markdown("### 📄 Share Your Background")
                 with gr.Tabs():
                     with gr.Tab("📎 Upload Resume"):
@@ -332,13 +298,12 @@ with gr.Blocks(theme=custom_theme, css=custom_css, title="CareerBridge AI") as d
                 elem_id="analyze-button"
             )
 
-        # RIGHT COLUMN: OUTPUT
         with gr.Column(scale=2):
-            with gr.Group(elem_classes="card-section", elem_id="output-card"):
+            with gr.Group():
                 gr.Markdown("### 💡 CareerBridge AI Analysis")
                 output = gr.Markdown(
                     value="Your personalized career analysis will appear here.",
-                    elem_id="output-scroll"
+                    elem_id="output-box"
                 )
 
     gr.Markdown(
