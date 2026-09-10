@@ -272,12 +272,13 @@ def gradio_career_advisor(
         and not field
         and not desired_role
         and not resume_text
+        and not background
     ):
 
         return (
             "## ⚠️ Please provide some information first\n\n"
             "Please enter your experience, field, desired role, "
-            "or upload your resume."
+            "background, or upload your resume."
         )
 
     # Generate analysis
@@ -597,6 +598,17 @@ html:not(.careerbridge-dark)
 }
 
 
+html:not(.careerbridge-dark)
+.gradio-container input::placeholder,
+html:not(.careerbridge-dark)
+.gradio-container textarea::placeholder {
+
+    color: #9ca3af !important;
+
+    opacity: 1 !important;
+}
+
+
 /* ============================================================
    DARK INPUTS
    ============================================================ */
@@ -691,6 +703,22 @@ html.careerbridge-dark
 
 
 /* ============================================================
+   TWO-COLUMN LAYOUT / OUTPUT COLUMN
+   ============================================================ */
+
+#output-column {
+
+    position: sticky !important;
+
+    top: 14px !important;
+
+    align-self: flex-start !important;
+
+    max-height: calc(100vh - 28px) !important;
+}
+
+
+/* ============================================================
    OUTPUT CARD
    ============================================================ */
 
@@ -705,6 +733,14 @@ html.careerbridge-dark
     padding: 10px 14px !important;
 
     min-height: 250px !important;
+
+    display: flex !important;
+
+    flex-direction: column !important;
+
+    max-height: calc(100vh - 28px) !important;
+
+    overflow: hidden !important;
 
     box-shadow:
         0 2px 8px rgba(15, 23, 42, 0.04) !important;
@@ -922,6 +958,16 @@ html.careerbridge-dark #footer-note {
     }
 
 
+    /* Output stacks below the form on mobile instead of sticking */
+
+    #output-column {
+
+        position: static !important;
+
+        max-height: none !important;
+    }
+
+
     #output-card {
 
         padding:
@@ -929,12 +975,14 @@ html.careerbridge-dark #footer-note {
             10px !important;
 
         min-height: 220px !important;
+
+        max-height: none !important;
     }
 
 
     #output-scroll {
 
-        max-height: 520px !important;
+        max-height: 420px !important;
     }
 
 
@@ -1056,136 +1104,137 @@ with gr.Blocks(
     )
 
 
-    # ========================================================
-    # CAREER PROFILE
-    # ========================================================
+    with gr.Row(equal_height=False):
 
-    with gr.Group(elem_classes="card-section"):
+        # ====================================================
+        # LEFT COLUMN: FORM
+        # ====================================================
 
-        gr.HTML(
-            """
-            <div class="section-title">
-                👤 Your Career Profile
-            </div>
-            """
-        )
+        with gr.Column(scale=3):
 
-        with gr.Row():
+            # ------------------------------------------------
+            # CAREER PROFILE
+            # ------------------------------------------------
 
-            with gr.Column(scale=1):
+            with gr.Group(elem_classes="card-section"):
 
-                experience = gr.Textbox(
-                    label="Total Experience",
-                    placeholder="Example: 4 years",
-                    lines=1
+                gr.HTML(
+                    """
+                    <div class="section-title">
+                        👤 Your Career Profile
+                    </div>
+                    """
                 )
 
-            with gr.Column(scale=1):
+                with gr.Row():
 
-                career_gap = gr.Textbox(
-                    label="Career Gap",
-                    placeholder="Example: 5 years",
-                    lines=1
+                    with gr.Column(scale=1):
+
+                        experience = gr.Textbox(
+                            label="💼 Total Experience",
+                            placeholder="Example: 4 years",
+                            lines=1
+                        )
+
+                    with gr.Column(scale=1):
+
+                        career_gap = gr.Textbox(
+                            label="⏳ Career Gap",
+                            placeholder="Example: 5 years",
+                            lines=1
+                        )
+
+
+                with gr.Row():
+
+                    with gr.Column(scale=1):
+
+                        field = gr.Textbox(
+                            label="🏢 Field / Industry",
+                            placeholder="Example: Cloud / IT",
+                            lines=1
+                        )
+
+                    with gr.Column(scale=1):
+
+                        desired_role = gr.Textbox(
+                            label="🎯 Desired Role",
+                            placeholder="Example: Cloud Engineer",
+                            lines=1
+                        )
+
+
+            # ------------------------------------------------
+            # BACKGROUND + RESUME (COMBINED INTO TABS)
+            # ------------------------------------------------
+
+            with gr.Group(elem_classes="card-section"):
+
+                gr.HTML(
+                    """
+                    <div class="section-title">
+                        📄 Share Your Background
+                    </div>
+                    """
                 )
 
+                with gr.Tabs():
 
-        with gr.Row():
+                    with gr.Tab("📎 Upload Resume"):
 
-            with gr.Column(scale=1):
+                        resume_file = gr.File(
+                            label="Upload PDF Resume",
+                            file_types=[".pdf"],
+                            type="filepath",
+                            elem_id="compact-upload"
+                        )
 
-                field = gr.Textbox(
-                    label="Current / Previous Field",
-                    placeholder="Example: Cloud / IT",
-                    lines=1
+                    with gr.Tab("✍️ Type it in"):
+
+                        background = gr.Textbox(
+                            label="Skills, certifications, projects or career goals",
+                            placeholder=(
+                                "Example: GCP certified, Cloud Run project, "
+                                "GenAI project, Terraform learning..."
+                            ),
+                            lines=6
+                        )
+
+
+            # ------------------------------------------------
+            # ANALYZE BUTTON
+            # ------------------------------------------------
+
+            analyze_button = gr.Button(
+                "🚀 Analyze My Career",
+                variant="primary",
+                elem_id="analyze-button"
+            )
+
+
+        # ====================================================
+        # RIGHT COLUMN: OUTPUT (STICKY + SCROLLABLE)
+        # ====================================================
+
+        with gr.Column(scale=2, elem_id="output-column"):
+
+            with gr.Group(elem_id="output-card"):
+
+                gr.HTML(
+                    """
+                    <div class="section-title">
+                        💡 CareerBridge AI Analysis
+                    </div>
+                    """
                 )
 
-            with gr.Column(scale=1):
-
-                desired_role = gr.Textbox(
-                    label="Desired Role",
-                    placeholder="Example: Cloud Engineer",
-                    lines=1
+                output = gr.Markdown(
+                    value=(
+                        "Your personalized career analysis "
+                        "will appear here."
+                    ),
+                    elem_id="output-scroll"
                 )
-
-
-    # ========================================================
-    # BACKGROUND
-    # ========================================================
-
-    with gr.Group(elem_classes="card-section"):
-
-        gr.HTML(
-            """
-            <div class="section-title">
-                📝 Your Background
-            </div>
-            """
-        )
-
-        background = gr.Textbox(
-            label="Tell us about your skills, certifications, projects or career goals",
-            placeholder=(
-                "Example: GCP certified, Cloud Run project, "
-                "GenAI project, Terraform learning..."
-            ),
-            lines=3
-        )
-
-
-    # ========================================================
-    # RESUME UPLOAD
-    # ========================================================
-
-    with gr.Group(elem_classes="card-section"):
-
-        gr.HTML(
-            """
-            <div class="section-title">
-                📄 Upload Your Resume
-            </div>
-            """
-        )
-
-        resume_file = gr.File(
-            label="Upload PDF Resume",
-            file_types=[".pdf"],
-            type="filepath",
-            elem_id="compact-upload"
-        )
-
-
-    # ========================================================
-    # ANALYZE BUTTON
-    # ========================================================
-
-    analyze_button = gr.Button(
-        "🚀 Analyze My Career",
-        variant="primary",
-        elem_id="analyze-button"
-    )
-
-
-    # ========================================================
-    # OUTPUT
-    # ========================================================
-
-    with gr.Group(elem_id="output-card"):
-
-        gr.HTML(
-            """
-            <div class="section-title">
-                💡 CareerBridge AI Analysis
-            </div>
-            """
-        )
-
-        output = gr.Markdown(
-            value=(
-                "Your personalized career analysis "
-                "will appear here."
-            ),
-            elem_id="output-scroll"
-        )
 
 
     # ========================================================
@@ -1222,7 +1271,8 @@ with gr.Blocks(
             background,
             resume_file
         ],
-        outputs=output
+        outputs=output,
+        scroll_to_output=False
     )
 
 
