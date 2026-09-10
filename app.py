@@ -5,28 +5,24 @@ from pypdf import PdfReader
 
 
 # ============================================================
-# GEMINI CONFIGURATION
+# GEMINI API CONFIGURATION
 # ============================================================
 
-api_key = os.environ.get("GEMINI_API_KEY")
+API_KEY = os.environ.get("GEMINI_API_KEY")
 
-if not api_key:
+if not API_KEY:
     raise ValueError(
         "GEMINI_API_KEY environment variable is not configured."
     )
 
-client = genai.Client(api_key=api_key)
+client = genai.Client(api_key=API_KEY)
 
 
 # ============================================================
-# RESUME TEXT EXTRACTION
+# RESUME PDF TEXT EXTRACTION
 # ============================================================
 
 def extract_resume_text(pdf_file):
-    """
-    Extract text from uploaded PDF resume.
-    Returns extracted text or an error message.
-    """
 
     if pdf_file is None:
         return ""
@@ -34,85 +30,217 @@ def extract_resume_text(pdf_file):
     try:
         reader = PdfReader(pdf_file.name)
 
-        text = ""
+        text_parts = []
 
         for page in reader.pages:
             page_text = page.extract_text()
 
             if page_text:
-                text += page_text + "\n"
+                text_parts.append(page_text)
 
-        text = text.strip()
+        text = "\n".join(text_parts).strip()
 
         if not text:
             return (
-                "⚠️ The uploaded PDF does not contain readable text. "
-                "Please upload a text-based PDF resume."
+                "⚠️ I could not extract readable text from this PDF. "
+                "Please make sure the PDF contains selectable text."
             )
 
         return text
 
     except Exception as e:
-        return f"⚠️ There was an issue reading the resume: {str(e)}"
+        return f"⚠️ Unable to read the PDF: {str(e)}"
 
 
 # ============================================================
 # GEMINI CAREER ANALYSIS
 # ============================================================
 
-def analyze_career_profile(user_background_text):
+def analyze_career_profile(
+    experience,
+    career_gap,
+    field,
+    desired_role,
+    background,
+    resume_text
+):
 
-    prompt = f"""
-You are an expert career advisor helping professionals,
-especially women returning to work after a career break.
+    resume_section = ""
 
-Analyze the person's career background carefully.
-
-Here is the person's information:
-
-{user_background_text}
-
-Provide practical, realistic and encouraging career guidance.
-
-Use the following structure:
-
-## 💪 Key Strengths
-Give 2-3 strengths based specifically on the person's experience,
-skills, certifications and background.
-
-## 📚 Skill Gaps
-Give 2-3 important skill gaps that matter for today's job market.
-Do not recommend unnecessary skills.
-
-## 🎯 Recommended Job Roles
-Recommend 3 realistic job roles.
-
-For each role include:
-- Role name
-- Why it fits the person's background
-- Important skills needed
-
-## 🚀 Recommended Next Steps
-Give 3 practical steps the person should take next.
-
-## 📝 Resume / Profile Suggestions
-Give 2-3 suggestions for improving their resume or professional profile.
-
-Important:
-- Be realistic.
-- Do not discourage the person because of the career gap.
-- Do not assume skills that are not mentioned.
-- Prefer roles that match their existing experience.
-- Keep the language simple and easy to understand.
-- Avoid unnecessary technical jargon.
+    if resume_text:
+        resume_section = f"""
+RESUME CONTENT:
+----------------
+{resume_text}
 """
 
-    response = client.models.generate_content(
-        model="gemini-3.6-flash",
-        contents=prompt
-    )
+    background_section = ""
 
-    return response.text
+    if background:
+        background_section = f"""
+USER'S ADDITIONAL BACKGROUND:
+------------------------------
+{background}
+"""
+
+    prompt = f"""
+You are CareerBridge AI, an experienced career advisor.
+
+Your purpose is to help professionals who are returning to work
+after a career break.
+
+Analyze the candidate's profile realistically and provide practical,
+encouraging and honest career guidance.
+
+Do NOT give generic motivational advice.
+
+Candidate information:
+
+Total Experience:
+{experience}
+
+Career Gap:
+{career_gap}
+
+Current / Previous Field:
+{field}
+
+Desired Role:
+{desired_role}
+
+{background_section}
+
+{resume_section}
+
+
+Please provide your answer using the following structure:
+
+## 1. Career Profile Summary
+
+Briefly summarize the candidate's current profile.
+
+## 2. Strengths
+
+Mention the candidate's strongest technical, professional,
+transferable or domain skills.
+
+## 3. Career Gap Impact
+
+Explain honestly how the career gap may affect job searching
+and how the candidate can handle it.
+
+## 4. Suitable Job Roles
+
+Suggest 4 to 6 realistic job roles.
+
+For every role explain:
+
+- Why it fits
+- Important skills
+- Difficulty level
+- What the candidate should learn or revise
+
+## 5. Skill Gap
+
+Clearly separate:
+
+### Already Useful
+Skills the candidate already appears to have.
+
+### Need Improvement
+Skills that should be strengthened.
+
+### Optional / Future
+Skills that are useful but should not be the immediate priority.
+
+## 6. 30-Day Action Plan
+
+Create a practical 30-day plan.
+
+Break it into:
+
+Week 1
+Week 2
+Week 3
+Week 4
+
+Keep the plan realistic for someone returning after a career break.
+
+## 7. Resume Suggestions
+
+Give specific suggestions for improving the resume.
+
+Focus on:
+
+- Career gap explanation
+- Skills
+- Projects
+- Certifications
+- ATS keywords
+- Professional summary
+
+## 8. Interview Preparation
+
+Suggest the most important interview topics for the target role.
+
+Also give 5 likely interview questions.
+
+## 9. Job Search Strategy
+
+Give practical advice about:
+
+- Job portals
+- LinkedIn
+- Recruiters
+- Referrals
+- Returnship programs
+- Direct company applications
+
+## 10. Final Recommendation
+
+Give a realistic conclusion.
+
+Mention:
+
+- Best immediate career direction
+- Top 3 skills to prioritize
+- What the candidate should NOT waste time learning right now
+
+Use simple, clear English.
+
+Be supportive but realistic.
+"""
+
+    try:
+
+        response = client.models.generate_content(
+            model="gemini-3.6-flash",
+            contents=prompt
+        )
+
+        if response is None:
+            return (
+                "⚠️ Gemini did not return a response. "
+                "Please try again."
+            )
+
+        result = response.text
+
+        if not result:
+            return (
+                "⚠️ Gemini returned an empty response. "
+                "Please try again."
+            )
+
+        return result
+
+    except Exception as e:
+
+        return (
+            "## ⚠️ Unable to generate career analysis\n\n"
+            f"**Error:** {str(e)}\n\n"
+            "Please check your Gemini API configuration and try again."
+        )
 
 
 # ============================================================
@@ -124,121 +252,53 @@ def gradio_career_advisor(
     career_gap,
     field,
     desired_role,
-    skills_background,
-    pdf_file
+    background,
+    resume_file
 ):
 
-    # --------------------------------------------------------
+    resume_text = ""
+
     # Read uploaded resume
-    # --------------------------------------------------------
+    if resume_file is not None:
 
-    resume_text = extract_resume_text(pdf_file)
+        resume_text = extract_resume_text(resume_file)
 
-    # --------------------------------------------------------
-    # Decide whether to use Resume or Manual Background
-    # --------------------------------------------------------
+        if resume_text.startswith("⚠️"):
+            return resume_text
 
-    if resume_text.startswith("⚠️"):
+    # Basic validation
+    if (
+        not experience
+        and not field
+        and not desired_role
+        and not resume_text
+    ):
 
-        # If resume has an error but manual background exists,
-        # use the manual background instead.
-        if skills_background and skills_background.strip():
-            final_background = skills_background.strip()
-        else:
-            yield resume_text
-            return
+        return (
+            "## ⚠️ Please provide some information first\n\n"
+            "Please enter your experience, field, desired role, "
+            "or upload your resume."
+        )
 
-    else:
-
-        if resume_text.strip():
-            final_background = resume_text.strip()
-
-        elif skills_background and skills_background.strip():
-            final_background = skills_background.strip()
-
-        else:
-            yield (
-                "⚠️ **Please upload your resume PDF, "
-                "or enter your skills/background manually.**"
-            )
-            return
-
-    # --------------------------------------------------------
-    # Loading message
-    # --------------------------------------------------------
-
-    yield (
-        "⏳ **Preparing your personalized career advice...**\n\n"
-        "Please wait a few seconds."
+    # Generate analysis
+    return analyze_career_profile(
+        experience=experience,
+        career_gap=career_gap,
+        field=field,
+        desired_role=desired_role,
+        background=background,
+        resume_text=resume_text
     )
-
-    # --------------------------------------------------------
-    # Combine all information
-    # --------------------------------------------------------
-
-    combined_input = f"""
-Years of Experience: {experience if experience else "Not specified"}
-
-Career Gap Duration: {career_gap if career_gap else "Not specified"}
-
-Field / Industry: {field if field else "Not specified"}
-
-Desired Role: {desired_role if desired_role else "Not specified"}
-
---------------------------------------------------
-BACKGROUND / SKILLS / RESUME DETAILS
---------------------------------------------------
-
-{final_background}
-"""
-
-    # --------------------------------------------------------
-    # Call Gemini safely
-    # --------------------------------------------------------
-
-    try:
-
-        result = analyze_career_profile(combined_input)
-
-        if not result or not result.strip():
-            yield (
-                "⚠️ **No career advice was generated.**\n\n"
-                "Please try again."
-            )
-            return
-
-        yield result
-
-    except Exception as e:
-
-        yield f"""
-### ⚠️ Something went wrong
-
-I couldn't generate your career advice right now.
-
-Please try again in a few seconds.
-
-**Possible reasons:**
-- Temporary Gemini API issue
-- API quota limit
-- Network problem
-
-Please try again later.
-"""
 
 
 # ============================================================
-# CUSTOM THEME
+# GRADIO THEME
 # ============================================================
 
 custom_theme = gr.themes.Soft(
-    primary_hue="purple",
-    secondary_hue="pink",
-    font=[
-        gr.themes.GoogleFont("Poppins"),
-        "ui-sans-serif",
-        "sans-serif"
-    ],
+    primary_hue="violet",
+    secondary_hue="slate",
+    neutral_hue="slate"
 )
 
 
@@ -246,564 +306,688 @@ custom_theme = gr.themes.Soft(
 # CUSTOM CSS
 # ============================================================
 
-custom_css = """
+custom_css = r"""
 
-/* =========================================================
-   GLOBAL DESKTOP LAYOUT
-   ========================================================= */
+/* ============================================================
+   GLOBAL LIGHT / DARK CONTROL
+   ============================================================ */
 
-.gradio-container {
-    max-width: 1180px !important;
-    margin: auto !important;
-    padding-top: 12px !important;
-    padding-bottom: 10px !important;
+html:not(.careerbridge-dark) {
+    color-scheme: light !important;
+}
+
+html.careerbridge-dark {
+    color-scheme: dark !important;
 }
 
 
-/* =========================================================
+/* ============================================================
+   LIGHT THEME
+   ============================================================ */
+
+.gradio-container {
+
+    --body-background-fill: #f8fafc !important;
+
+    --body-text-color: #1f2937 !important;
+
+    --body-text-color-subdued: #64748b !important;
+
+    --background-fill-primary: #ffffff !important;
+
+    --background-fill-secondary: #f8fafc !important;
+
+    --block-background-fill: #ffffff !important;
+
+    --panel-background-fill: #ffffff !important;
+
+    --input-background-fill: #ffffff !important;
+
+    --input-border-color: #d1d5db !important;
+
+    --border-color-primary: #e5e7eb !important;
+
+    --button-secondary-background-fill: #f8fafc !important;
+
+    max-width: 1180px !important;
+
+    margin: 0 auto !important;
+
+    padding: 10px 14px 14px 14px !important;
+}
+
+
+/* ============================================================
+   DARK THEME
+   ============================================================ */
+
+html.careerbridge-dark .gradio-container {
+
+    --body-background-fill: #080d18 !important;
+
+    --body-text-color: #f8fafc !important;
+
+    --body-text-color-subdued: #cbd5e1 !important;
+
+    --background-fill-primary: #0f172a !important;
+
+    --background-fill-secondary: #111827 !important;
+
+    --block-background-fill: #111827 !important;
+
+    --panel-background-fill: #0f172a !important;
+
+    --input-background-fill: #1e293b !important;
+
+    --input-border-color: #475569 !important;
+
+    --border-color-primary: #334155 !important;
+
+    --button-secondary-background-fill: #1e293b !important;
+}
+
+
+/* ============================================================
+   PAGE BACKGROUND
+   ============================================================ */
+
+html:not(.careerbridge-dark) body,
+html:not(.careerbridge-dark) .gradio-container {
+
+    background: #f8fafc !important;
+
+    color: #1f2937 !important;
+}
+
+
+html.careerbridge-dark body,
+html.careerbridge-dark .gradio-container {
+
+    background: #080d18 !important;
+
+    color: #f8fafc !important;
+}
+
+
+/* ============================================================
    HEADER
-   ========================================================= */
+   ============================================================ */
 
 #header-banner {
 
-    position: relative;
+    position: relative !important;
 
-    background: linear-gradient(
-        135deg,
-        #7c3aed 0%,
-        #db2777 100%
-    );
+    padding: 14px 24px 16px 24px !important;
 
-    border-radius: 16px;
+    border-radius: 18px !important;
 
-    padding: 16px 24px 17px 24px;
+    margin-bottom: 10px !important;
 
-    margin-bottom: 12px;
+    background:
+        linear-gradient(
+            135deg,
+            #6d28d9 0%,
+            #7c3aed 45%,
+            #9333ea 100%
+        ) !important;
+
+    color: white !important;
 
     box-shadow:
-        0 6px 20px rgba(124, 58, 237, 0.22);
-}
-
-
-#header-banner h1,
-#header-banner h3,
-#header-banner p {
-
-    color: #ffffff !important;
+        0 8px 22px rgba(76, 29, 149, 0.18) !important;
 }
 
 
 #header-banner h1 {
 
-    margin-top: 0 !important;
-    margin-bottom: 2px !important;
+    margin: 0 !important;
 
-    font-size: 1.85rem !important;
-    line-height: 1.2 !important;
-}
+    font-size: 30px !important;
 
+    line-height: 1.15 !important;
 
-#header-banner h3 {
+    font-weight: 800 !important;
 
-    font-weight: 500 !important;
-
-    opacity: 0.95;
-
-    margin-top: 0 !important;
-    margin-bottom: 5px !important;
-
-    font-size: 1rem !important;
-
-    line-height: 1.3 !important;
+    color: white !important;
 }
 
 
 #header-banner p {
 
-    opacity: 0.9;
+    margin: 4px 0 0 0 !important;
 
-    margin: 0 !important;
+    font-size: 14px !important;
 
-    font-size: 0.88rem !important;
+    line-height: 1.35 !important;
 
-    line-height: 1.4 !important;
+    color: rgba(255,255,255,0.92) !important;
 }
 
 
-/* =========================================================
+/* ============================================================
    THEME BUTTON
-   ========================================================= */
+   ============================================================ */
 
 #theme-toggle-wrap {
 
     position: absolute !important;
 
-    top: 12px;
-    right: 14px;
+    top: 10px !important;
 
-    z-index: 50 !important;
+    right: 12px !important;
+
+    z-index: 100 !important;
 }
 
 
 #theme-toggle-wrap button {
 
-    background: rgba(255,255,255,0.15) !important;
+    border: 1px solid rgba(255,255,255,0.35) !important;
 
-    border: 1px solid rgba(255,255,255,0.4) !important;
+    border-radius: 999px !important;
 
-    color: #ffffff !important;
+    background: rgba(255,255,255,0.16) !important;
 
-    border-radius: 20px !important;
+    color: white !important;
 
-    padding: 7px 14px !important;
+    padding: 7px 13px !important;
 
-    font-size: 0.78em !important;
+    font-size: 12px !important;
 
-    font-family: inherit;
+    font-weight: 600 !important;
 
     cursor: pointer !important;
 
-    touch-action: manipulation;
+    backdrop-filter: blur(8px) !important;
 
-    white-space: nowrap;
+    transition:
+        background 0.2s ease,
+        transform 0.2s ease !important;
 }
 
 
 #theme-toggle-wrap button:hover {
 
-    background: rgba(255,255,255,0.28) !important;
+    background: rgba(255,255,255,0.26) !important;
+
+    transform: translateY(-1px) !important;
 }
 
 
-/* =========================================================
+/* ============================================================
    CARDS
-   ========================================================= */
+   ============================================================ */
 
 .card-section {
 
-    background: var(--background-fill-primary);
+    background: #ffffff !important;
 
-    color: var(--body-text-color);
+    border: 1px solid #e5e7eb !important;
 
-    border-radius: 14px;
+    border-radius: 14px !important;
 
-    padding: 10px 16px !important;
+    padding: 10px 12px !important;
 
-    margin-bottom: 10px;
+    margin-bottom: 9px !important;
 
     box-shadow:
-        0 2px 8px rgba(0,0,0,0.05);
-
-    border: 1px solid var(--border-color-primary);
+        0 2px 8px rgba(15, 23, 42, 0.04) !important;
 }
 
 
-.card-section h4 {
+html.careerbridge-dark .card-section {
 
-    margin-top: 0 !important;
-    margin-bottom: 6px !important;
+    background: #111827 !important;
 
-    font-size: 0.98rem !important;
+    border-color: #334155 !important;
+
+    box-shadow:
+        0 3px 12px rgba(0,0,0,0.22) !important;
 }
 
 
-.card-section p,
-.card-section span {
-
-    color: var(--body-text-color) !important;
-}
-
+/* ============================================================
+   SECTION TITLES
+   ============================================================ */
 
 .section-title {
 
-    font-weight: 600 !important;
+    font-size: 16px !important;
 
-    margin-bottom: 3px !important;
+    font-weight: 750 !important;
+
+    margin: 0 0 6px 0 !important;
+
+    color: #1f2937 !important;
 }
 
 
-/* =========================================================
-   INPUT BOXES
-   ========================================================= */
+html.careerbridge-dark .section-title {
 
-.card-section input,
-.card-section textarea {
-
-    min-height: 40px !important;
+    color: #f8fafc !important;
 }
 
 
-.card-section label {
+/* ============================================================
+   LABELS
+   ============================================================ */
 
-    font-size: 0.82rem !important;
+.gradio-container label {
+
+    font-size: 12px !important;
+
+    font-weight: 650 !important;
 }
 
 
-/* =========================================================
+/* ============================================================
+   LIGHT INPUTS
+   ============================================================ */
+
+html:not(.careerbridge-dark)
+.gradio-container input,
+html:not(.careerbridge-dark)
+.gradio-container textarea {
+
+    background: #ffffff !important;
+
+    color: #1f2937 !important;
+
+    border-color: #d1d5db !important;
+}
+
+
+/* ============================================================
+   DARK INPUTS
+   ============================================================ */
+
+html.careerbridge-dark
+.gradio-container input,
+html.careerbridge-dark
+.gradio-container textarea {
+
+    background: #1e293b !important;
+
+    color: #f8fafc !important;
+
+    border-color: #475569 !important;
+}
+
+
+html.careerbridge-dark
+.gradio-container input::placeholder,
+html.careerbridge-dark
+.gradio-container textarea::placeholder {
+
+    color: #94a3b8 !important;
+}
+
+
+/* ============================================================
+   DARK DROPDOWNS
+   ============================================================ */
+
+html.careerbridge-dark
+.gradio-container select {
+
+    background: #1e293b !important;
+
+    color: #f8fafc !important;
+
+    border-color: #475569 !important;
+}
+
+
+/* ============================================================
    RESUME UPLOAD
-   ========================================================= */
+   ============================================================ */
 
 #compact-upload {
 
-    min-height: 78px !important;
+    background: #ffffff !important;
+
+    border-radius: 12px !important;
+
+    border: 1px dashed #cbd5e1 !important;
+
+    min-height: 76px !important;
 }
 
 
-#compact-upload .wrap {
+html.careerbridge-dark #compact-upload {
 
-    min-height: 78px !important;
+    background: #111827 !important;
 
-    padding: 6px !important;
+    border-color: #475569 !important;
+
+    color: #f8fafc !important;
 }
 
 
-#compact-upload .file-preview {
+/* ============================================================
+   TABS
+   ============================================================ */
 
-    min-height: 50px !important;
+.gradio-container [role="tab"] {
+
+    font-size: 13px !important;
+
+    font-weight: 650 !important;
 }
 
 
-/* =========================================================
-   SUBMIT BUTTON
-   ========================================================= */
+html.careerbridge-dark
+.gradio-container [role="tab"] {
 
-#submit-btn {
-
-    border-radius: 11px !important;
-
-    font-weight: 600 !important;
-
-    letter-spacing: 0.2px;
-
-    box-shadow:
-        0 4px 12px rgba(147, 51, 234, 0.28);
-
-    min-height: 44px !important;
+    color: #cbd5e1 !important;
 }
 
 
-/* =========================================================
-   OUTPUT COLUMN
-   ========================================================= */
+html.careerbridge-dark
+.gradio-container [role="tab"][aria-selected="true"] {
 
-#output-column {
-
-    position: sticky;
-
-    top: 12px;
-
-    align-self: flex-start;
-
-    max-height: calc(100vh - 24px);
+    color: #c4b5fd !important;
 }
 
+
+/* ============================================================
+   OUTPUT CARD
+   ============================================================ */
 
 #output-card {
 
-    background: var(--background-fill-primary);
+    background: #ffffff !important;
 
-    color: var(--body-text-color);
+    border: 1px solid #e5e7eb !important;
 
-    border-radius: 14px;
+    border-radius: 14px !important;
 
-    padding: 15px 17px 6px 17px;
+    padding: 10px 14px !important;
+
+    min-height: 250px !important;
 
     box-shadow:
-        0 2px 12px rgba(0,0,0,0.07);
-
-    border: 1px solid var(--border-color-primary);
-
-    display: flex;
-
-    flex-direction: column;
-
-    max-height: calc(100vh - 24px);
-
-    overflow: hidden;
+        0 2px 8px rgba(15, 23, 42, 0.04) !important;
 }
 
 
-#output-heading {
+html.careerbridge-dark #output-card {
 
-    flex-shrink: 0;
+    background: #111827 !important;
 
-    margin-bottom: 3px;
+    border-color: #334155 !important;
+
+    color: #f8fafc !important;
 }
 
 
-#output-heading h4 {
-
-    margin: 0 !important;
-
-    color: #a855f7;
-}
-
+/* ============================================================
+   OUTPUT AREA
+   ============================================================ */
 
 #output-scroll {
 
-    overflow-y: auto;
+    max-height: 570px !important;
 
-    min-height: 160px;
+    overflow-y: auto !important;
 
-    padding-bottom: 10px;
+    padding-right: 5px !important;
 }
 
 
-/* =========================================================
-   OUTPUT MARKDOWN
-   ========================================================= */
-
+#output-scroll h1,
 #output-scroll h2,
 #output-scroll h3 {
 
-    margin-top: 10px !important;
+    margin-top: 8px !important;
+
     margin-bottom: 5px !important;
 }
 
 
-#output-scroll p {
+html.careerbridge-dark #output-scroll,
+html.careerbridge-dark #output-scroll p,
+html.careerbridge-dark #output-scroll li {
 
-    margin-top: 4px !important;
-    margin-bottom: 6px !important;
-
-    line-height: 1.45 !important;
+    color: #e5e7eb !important;
 }
 
 
-#output-scroll ul {
+html.careerbridge-dark #output-scroll strong {
 
-    margin-top: 4px !important;
-    margin-bottom: 7px !important;
+    color: #ffffff !important;
 }
 
 
-/* =========================================================
+/* ============================================================
+   ANALYZE BUTTON
+   ============================================================ */
+
+#analyze-button {
+
+    min-height: 42px !important;
+
+    border-radius: 10px !important;
+
+    font-size: 14px !important;
+
+    font-weight: 700 !important;
+}
+
+
+/* ============================================================
    PRIVACY NOTE
-   ========================================================= */
+   ============================================================ */
 
 #privacy-note {
 
-    font-size: 0.72rem !important;
+    text-align: center !important;
 
-    opacity: 0.68;
+    font-size: 10px !important;
 
-    margin-top: 2px !important;
+    color: #64748b !important;
 
-    margin-bottom: 8px !important;
+    margin-top: 3px !important;
 }
 
 
-/* =========================================================
+html.careerbridge-dark #privacy-note {
+
+    color: #94a3b8 !important;
+}
+
+
+/* ============================================================
    FOOTER
-   ========================================================= */
+   ============================================================ */
 
 #footer-note {
 
-    text-align: center;
+    text-align: center !important;
 
-    margin-top: 8px;
+    font-size: 10px !important;
 
-    opacity: 0.6;
+    color: #64748b !important;
 
-    font-size: 0.72em;
+    padding: 3px 0 !important;
 }
 
 
-/* =========================================================
+html.careerbridge-dark #footer-note {
+
+    color: #94a3b8 !important;
+}
+
+
+/* ============================================================
    MOBILE
-   ========================================================= */
+   ============================================================ */
 
 @media (max-width: 768px) {
 
     .gradio-container {
 
-        max-width: 100% !important;
-
         padding:
-            8px 8px 12px 8px !important;
+            7px
+            9px
+            10px
+            9px !important;
+
+        max-width: 100% !important;
     }
 
 
-    /* Header */
+    /* Reduced from 64px to 44px.
+       This removes the extra blank space above the title. */
 
     #header-banner {
 
         padding:
-            64px 16px 18px 16px !important;
+            44px
+            16px
+            17px
+            16px !important;
 
-        border-radius: 15px;
+        border-radius: 15px !important;
 
-        margin-bottom: 10px;
+        margin-bottom: 8px !important;
     }
 
 
     #header-banner h1 {
 
-        font-size: 1.65rem !important;
+        font-size: 25px !important;
 
-        line-height: 1.2 !important;
-
-        margin-bottom: 4px !important;
-    }
-
-
-    #header-banner h3 {
-
-        font-size: 0.95rem !important;
-
-        line-height: 1.35 !important;
-
-        margin-bottom: 7px !important;
+        line-height: 1.15 !important;
     }
 
 
     #header-banner p {
 
-        font-size: 0.82rem !important;
+        font-size: 12px !important;
 
-        line-height: 1.45 !important;
+        line-height: 1.35 !important;
+
+        margin-top: 4px !important;
     }
 
 
-    /* Theme button */
-
     #theme-toggle-wrap {
 
-        top: 11px;
+        top: 9px !important;
 
-        right: 11px;
+        right: 9px !important;
     }
 
 
     #theme-toggle-wrap button {
 
         padding:
-            8px 13px !important;
+            7px
+            11px !important;
 
-        font-size: 0.76em !important;
+        font-size: 11px !important;
     }
 
-
-    /* Cards */
 
     .card-section {
 
         padding:
-            11px 12px !important;
+            9px
+            9px !important;
 
-        margin-bottom: 9px;
+        margin-bottom: 7px !important;
 
-        border-radius: 13px;
+        border-radius: 12px !important;
     }
 
 
-    /* Inputs */
+    .section-title {
 
-    .card-section input,
-    .card-section textarea {
+        font-size: 15px !important;
 
-        min-height: 42px !important;
+        margin-bottom: 5px !important;
     }
 
 
-    /* Resume */
+    .gradio-container label {
+
+        font-size: 11px !important;
+    }
+
 
     #compact-upload {
 
-        min-height: 95px !important;
-    }
-
-
-    #compact-upload .wrap {
-
-        min-height: 95px !important;
-
-        padding: 6px !important;
-    }
-
-
-    /* Submit */
-
-    #submit-btn {
-
-        min-height: 46px !important;
-
-        margin-top: 2px !important;
-    }
-
-
-    /* Output */
-
-    #output-column {
-
-        position: static !important;
-
-        max-height: none !important;
-
-        margin-top: 10px !important;
+        min-height: 68px !important;
     }
 
 
     #output-card {
 
-        max-height: none !important;
-
-        overflow: visible !important;
-
         padding:
-            14px 14px 6px 14px !important;
+            9px
+            10px !important;
+
+        min-height: 220px !important;
     }
 
 
     #output-scroll {
 
-        max-height: none !important;
-
-        overflow-y: visible !important;
-
-        min-height: 160px;
+        max-height: 520px !important;
     }
 
 
-    #footer-note {
+    #analyze-button {
 
-        margin-top: 8px;
+        min-height: 44px !important;
 
-        font-size: 0.7em;
+        font-size: 14px !important;
+    }
+
+
+    #privacy-note {
+
+        font-size: 9px !important;
     }
 }
 
 
-/* =========================================================
+/* ============================================================
    VERY SMALL MOBILE
-   ========================================================= */
+   ============================================================ */
 
 @media (max-width: 420px) {
 
-    #header-banner h1 {
+    #header-banner {
 
-        font-size: 1.48rem !important;
+        padding:
+            42px
+            13px
+            15px
+            13px !important;
     }
 
 
-    #header-banner h3 {
+    #header-banner h1 {
 
-        font-size: 0.88rem !important;
+        font-size: 23px !important;
     }
 
 
     #header-banner p {
 
-        font-size: 0.78rem !important;
+        font-size: 11px !important;
     }
 
 
     #theme-toggle-wrap button {
 
         padding:
-            7px 11px !important;
+            6px
+            9px !important;
 
-        font-size: 0.72em !important;
+        font-size: 10px !important;
     }
 }
 
@@ -815,303 +999,231 @@ custom_css = """
 # ============================================================
 
 with gr.Blocks(
-    title="CareerBridge AI",
     theme=custom_theme,
-    css=custom_css
+    css=custom_css,
+    title="CareerBridge AI"
 ) as demo:
 
-    # --------------------------------------------------------
+
+    # ========================================================
     # HEADER
-    # --------------------------------------------------------
+    # ========================================================
 
-    with gr.Column(elem_id="header-banner"):
+    gr.HTML(
+        """
+        <div id="header-banner">
 
-        gr.HTML(
-            """
             <div id="theme-toggle-wrap">
 
-                <button onclick="toggleCareerTheme()">
+                <button
+                    type="button"
+                    aria-label="Toggle light and dark theme"
+                    onclick="
+                        const root = document.documentElement;
+
+                        const dark =
+                            !root.classList.contains(
+                                'careerbridge-dark'
+                            );
+
+                        root.classList.toggle(
+                            'careerbridge-dark',
+                            dark
+                        );
+
+                        try {
+                            localStorage.setItem(
+                                'careerbridge-theme',
+                                dark ? 'dark' : 'light'
+                            );
+                        } catch(e) {}
+                    "
+                >
                     🌙 / ☀️ Theme
                 </button>
 
             </div>
 
-            <script>
+            <h1>CareerBridge AI</h1>
 
-            function toggleCareerTheme() {
+            <p>
+                AI-powered career guidance for professionals
+                returning to work after a career break.
+            </p>
 
-                const url = new URL(window.location.href);
-
-                let currentTheme =
-                    url.searchParams.get("__theme");
-
-                if (!currentTheme) {
-
-                    currentTheme =
-                        window.matchMedia(
-                            "(prefers-color-scheme: dark)"
-                        ).matches
-                        ? "dark"
-                        : "light";
-                }
-
-                const nextTheme =
-                    currentTheme === "dark"
-                    ? "light"
-                    : "dark";
-
-                url.searchParams.set(
-                    "__theme",
-                    nextTheme
-                );
-
-                window.location.href =
-                    url.toString();
-            }
+        </div>
+        """
+    )
 
 
-            /*
-             * If no theme is explicitly selected,
-             * start with LIGHT mode.
-             *
-             * This prevents mobile devices using
-             * system dark mode from forcing the
-             * application into dark mode.
-             */
+    # ========================================================
+    # CAREER PROFILE
+    # ========================================================
 
-            (function () {
+    with gr.Group(elem_classes="card-section"):
 
-                const url =
-                    new URL(window.location.href);
-
-                if (
-                    !url.searchParams.get("__theme")
-                ) {
-
-                    url.searchParams.set(
-                        "__theme",
-                        "light"
-                    );
-
-                    window.history.replaceState(
-                        {},
-                        "",
-                        url.toString()
-                    );
-                }
-
-            })();
-
-            </script>
+        gr.HTML(
+            """
+            <div class="section-title">
+                👤 Your Career Profile
+            </div>
             """
         )
 
-        gr.Markdown(
+        with gr.Row():
+
+            with gr.Column(scale=1):
+
+                experience = gr.Textbox(
+                    label="Total Experience",
+                    placeholder="Example: 4 years",
+                    lines=1
+                )
+
+            with gr.Column(scale=1):
+
+                career_gap = gr.Textbox(
+                    label="Career Gap",
+                    placeholder="Example: 5 years",
+                    lines=1
+                )
+
+
+        with gr.Row():
+
+            with gr.Column(scale=1):
+
+                field = gr.Textbox(
+                    label="Current / Previous Field",
+                    placeholder="Example: Cloud / IT",
+                    lines=1
+                )
+
+            with gr.Column(scale=1):
+
+                desired_role = gr.Textbox(
+                    label="Desired Role",
+                    placeholder="Example: Cloud Engineer",
+                    lines=1
+                )
+
+
+    # ========================================================
+    # BACKGROUND
+    # ========================================================
+
+    with gr.Group(elem_classes="card-section"):
+
+        gr.HTML(
             """
-            # 🌉 CareerBridge AI
-
-            ### Your personal guide back to the workforce, powered by Google Gemini
-
-            Returning to work after a break can feel overwhelming.
-            Share a bit about yourself and get instant, personalized
-            career guidance — your strengths, skill gaps, and best-fit roles.
+            <div class="section-title">
+                📝 Your Background
+            </div>
             """
         )
 
-
-    # --------------------------------------------------------
-    # MAIN ROW
-    # --------------------------------------------------------
-
-    with gr.Row(equal_height=False):
-
-
-        # ====================================================
-        # LEFT SIDE
-        # ====================================================
-
-        with gr.Column(scale=3):
+        background = gr.Textbox(
+            label="Tell us about your skills, certifications, projects or career goals",
+            placeholder=(
+                "Example: GCP certified, Cloud Run project, "
+                "GenAI project, Terraform learning..."
+            ),
+            lines=3
+        )
 
 
-            # ------------------------------------------------
-            # CAREER DETAILS
-            # ------------------------------------------------
+    # ========================================================
+    # RESUME UPLOAD
+    # ========================================================
 
-            with gr.Column(
-                elem_classes="card-section"
-            ):
+    with gr.Group(elem_classes="card-section"):
 
-                gr.Markdown(
-                    "#### 👤 Tell us about your career so far",
-                    elem_classes="section-title"
-                )
+        gr.HTML(
+            """
+            <div class="section-title">
+                📄 Upload Your Resume
+            </div>
+            """
+        )
 
-                with gr.Row():
-
-                    experience = gr.Textbox(
-                        label="💼 Experience (years)",
-                        placeholder="e.g. 4 years"
-                    )
-
-                    career_gap = gr.Textbox(
-                        label="⏳ Career Gap Duration",
-                        placeholder="e.g. 5 years"
-                    )
+        resume_file = gr.File(
+            label="Upload PDF Resume",
+            file_types=[".pdf"],
+            type="filepath",
+            elem_id="compact-upload"
+        )
 
 
-                with gr.Row():
+    # ========================================================
+    # ANALYZE BUTTON
+    # ========================================================
 
-                    field = gr.Textbox(
-                        label="🏢 Field / Industry",
-                        placeholder="e.g. IT, Cloud, AI"
-                    )
-
-                    desired_role = gr.Textbox(
-                        label="🎯 Desired Role (optional)",
-                        placeholder="e.g. Cloud Engineer"
-                    )
+    analyze_button = gr.Button(
+        "🚀 Analyze My Career",
+        variant="primary",
+        elem_id="analyze-button"
+    )
 
 
-            # ------------------------------------------------
-            # BACKGROUND / RESUME
-            # ------------------------------------------------
+    # ========================================================
+    # OUTPUT
+    # ========================================================
 
-            with gr.Column(
-                elem_classes="card-section"
-            ):
+    with gr.Group(elem_id="output-card"):
 
-                gr.Markdown(
-                    "#### 📄 Share your background",
-                    elem_classes="section-title"
-                )
+        gr.HTML(
+            """
+            <div class="section-title">
+                💡 CareerBridge AI Analysis
+            </div>
+            """
+        )
 
-
-                with gr.Tabs():
-
-                    # ----------------------------------------
-                    # UPLOAD RESUME
-                    # ----------------------------------------
-
-                    with gr.Tab("📎 Upload Resume"):
-
-                        pdf_input = gr.File(
-                            label="Resume Upload (PDF only)",
-                            file_types=[".pdf"],
-                            elem_id="compact-upload"
-                        )
+        output = gr.Markdown(
+            value=(
+                "Your personalized career analysis "
+                "will appear here."
+            ),
+            elem_id="output-scroll"
+        )
 
 
-                    # ----------------------------------------
-                    # MANUAL INPUT
-                    # ----------------------------------------
-
-                    with gr.Tab("✍️ Type it in"):
-
-                        skills_background = gr.Textbox(
-                            label="Describe your skills and background",
-
-                            placeholder=(
-                                "Certifications, key skills, "
-                                "previous responsibilities, "
-                                "achievements..."
-                            ),
-
-                            lines=4
-                        )
-
-
-                gr.Markdown(
-                    """
-                    🔒 **Privacy Note:** Your resume is used only to
-                    generate personalized career guidance.
-                    Please avoid uploading unnecessary sensitive information.
-                    """,
-                    elem_id="privacy-note"
-                )
-
-
-            # ------------------------------------------------
-            # BUTTON
-            # ------------------------------------------------
-
-            submit_btn = gr.Button(
-                "✨ Get My Career Advice",
-                variant="primary",
-                size="lg",
-                elem_id="submit-btn"
-            )
-
-
-        # ====================================================
-        # RIGHT SIDE
-        # ====================================================
-
-        with gr.Column(
-            scale=2,
-            elem_id="output-column"
-        ):
-
-            with gr.Column(
-                elem_id="output-card"
-            ):
-
-                gr.Markdown(
-                    "#### 💡 Your Career Advice",
-                    elem_id="output-heading"
-                )
-
-
-                with gr.Column(
-                    elem_id="output-scroll"
-                ):
-
-                    output = gr.Markdown(
-                        """
-                        Fill in your details on the left and click
-                        **Get My Career Advice** — your personalized
-                        guidance will appear here.
-                        """
-                    )
-
-
-    # --------------------------------------------------------
-    # FOOTER
-    # --------------------------------------------------------
+    # ========================================================
+    # PRIVACY NOTE
+    # ========================================================
 
     gr.Markdown(
-        "Built with ❤️ for career returners · Powered by Google Gemini",
+        "🔒 Your resume is used only to generate this career analysis.",
+        elem_id="privacy-note"
+    )
+
+
+    # ========================================================
+    # FOOTER
+    # ========================================================
+
+    gr.Markdown(
+        "CareerBridge AI • Built to support career comeback journeys",
         elem_id="footer-note"
     )
 
 
     # ========================================================
-    # BUTTON ACTION
+    # ANALYZE BUTTON ACTION
     # ========================================================
 
-    submit_btn.click(
-
+    analyze_button.click(
         fn=gradio_career_advisor,
-
         inputs=[
             experience,
             career_gap,
             field,
             desired_role,
-            skills_background,
-            pdf_input
+            background,
+            resume_file
         ],
-
-        outputs=output,
-
-        scroll_to_output=False
+        outputs=output
     )
-
-
-# ============================================================
-# QUEUE
-# ============================================================
-
-demo.queue()
 
 
 # ============================================================
@@ -1122,5 +1234,7 @@ if __name__ == "__main__":
 
     demo.launch(
         server_name="0.0.0.0",
-        server_port=7860
+        server_port=int(
+            os.environ.get("PORT", 7860)
+        )
     )
