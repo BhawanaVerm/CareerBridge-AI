@@ -47,7 +47,7 @@ def extract_resume_text(pdf_file):
 
 
 # ============================================================
-# GEMINI CAREER ANALYSIS (STABLE FALLBACK MECHANISM)
+# GEMINI CAREER ANALYSIS (STABLE MODEL FALLBACKS)
 # ============================================================
 
 def analyze_career_profile(
@@ -94,27 +94,31 @@ Please provide your answer using the following structure:
 Use simple, clear English. Be supportive but realistic.
 """
 
-    # Correct model names for modern GenAI SDK
-    models_to_try = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+    # Using robust model endpoints across GenAI API specs
+    models_to_try = [
+        "gemini-2.5-flash",
+        "gemini-2.0-flash",
+        "gemini-1.5-flash",
+        "gemini-1.5-pro"
+    ]
     last_error = ""
 
     for model_name in models_to_try:
-        for attempt in range(2):
-            try:
-                response = client.models.generate_content(
-                    model=model_name,
-                    contents=prompt
-                )
-                if response and response.text:
-                    return response.text
-            except Exception as e:
-                last_error = str(e)
-                time.sleep(1)
+        try:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt
+            )
+            if response and response.text:
+                return response.text
+        except Exception as e:
+            last_error = str(e)
+            time.sleep(0.5)
 
     return (
-        "## ⚠️ Unable to process request\n\n"
-        f"**Error Details:** {last_error}\n\n"
-        "Please try again in a few moments."
+        "## ⚠️ Connection Issue\n\n"
+        f"**API Response:** {last_error}\n\n"
+        "Please check your network or try clicking again in a few seconds."
     )
 
 
@@ -138,8 +142,8 @@ def gradio_career_advisor(
 
     if not experience and not field and not desired_role and not resume_text and not background:
         return (
-            "## ⚠️ Please provide some information first\n\n"
-            "Please enter your experience, field, desired role, background, or upload your resume."
+            "## ⚠️ Information Required\n\n"
+            "Please provide your profile details or upload a resume to proceed."
         )
 
     return analyze_career_profile(
@@ -153,78 +157,110 @@ def gradio_career_advisor(
 
 
 # ============================================================
-# COMPACT CSS & DARK THEME OVERRIDES
+# COMPLETE STABLE CSS FIX (PREVENTS WHITE FLASH & THEME BUG)
 # ============================================================
 
-custom_css = """
-/* Global Sizing & Padding Fix */
+custom_css = r"""
+/* Page Container Alignment */
 .gradio-container {
-    max-width: 1200px !important;
+    max-width: 1150px !important;
     margin: 0 auto !important;
-    padding: 10px 15px !important;
+    padding: 10px 12px !important;
 }
 
-/* Fix Header Height */
+/* Rigid Dark Theme State Overrides */
+html.dark, html.dark body, html.dark .gradio-container {
+    background-color: #0d1117 !important;
+    color: #e6edf3 !important;
+}
+
+html.dark .block, 
+html.dark .panel, 
+html.dark .card-section,
+html.dark #output-card,
+html.dark .gr-box,
+html.dark div[data-testid="block"] {
+    background-color: #161b22 !important;
+    border-color: #30363d !important;
+    color: #e6edf3 !important;
+}
+
+html.dark input, 
+html.dark textarea, 
+html.dark select,
+html.dark .file-preview {
+    background-color: #0d1117 !important;
+    border-color: #30363d !important;
+    color: #f0f6fc !important;
+}
+
+/* Lock Output Box to Prevent White Flashing */
+html.dark #output-scroll,
+html.dark #output-scroll * {
+    background-color: transparent !important;
+    color: #e6edf3 !important;
+}
+
+/* Header Banner & Fixed Theme Toggle */
 #header-banner {
-    padding: 12px 20px !important;
+    position: relative !important;
+    padding: 14px 20px !important;
     border-radius: 12px !important;
     margin-bottom: 12px !important;
     background: linear-gradient(135deg, #6d28d9 0%, #7c3aed 100%) !important;
-    color: white !important;
+    color: #ffffff !important;
 }
 
 #header-banner h1 {
     font-size: 24px !important;
     margin: 0 !important;
     font-weight: 700 !important;
+    color: #ffffff !important;
 }
 
 #header-banner p {
     font-size: 13px !important;
     margin: 2px 0 0 0 !important;
-    opacity: 0.9;
+    opacity: 0.92;
+    color: #ffffff !important;
 }
 
-/* Compact Group Cards */
-.card-section {
-    border-radius: 10px !important;
-    padding: 10px 14px !important;
-    margin-bottom: 10px !important;
-}
-
-/* Output Card Sticky and Height Control */
-#output-column {
-    position: sticky !important;
-    top: 10px !important;
+#theme-toggle-btn {
+    position: absolute !important;
+    top: 12px !important;
+    right: 16px !important;
+    background: rgba(255, 255, 255, 0.2) !important;
+    border: 1px solid rgba(255, 255, 255, 0.4) !important;
+    color: #ffffff !important;
+    padding: 5px 12px !important;
+    border-radius: 20px !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
 }
 
 #output-scroll {
-    max-height: 520px !important;
+    max-height: 480px !important;
     overflow-y: auto !important;
-    padding: 8px !important;
-}
-
-/* Compact Textboxes and Buttons */
-.gradio-container input, .gradio-container textarea {
-    padding: 6px 10px !important;
-    font-size: 13px !important;
+    padding: 6px !important;
 }
 
 #analyze-button {
-    min-height: 40px !important;
+    min-height: 42px !important;
     font-size: 15px !important;
     font-weight: 600 !important;
+    margin-top: 6px !important;
 }
 
 #privacy-note, #footer-note {
     font-size: 11px !important;
     text-align: center;
-    margin-top: 4px !important;
+    margin-top: 6px !important;
 }
 """
 
 # ============================================================
-# GRADIO APP BUILD
+# GRADIO APPLICATION BUILD
 # ============================================================
 
 custom_theme = gr.themes.Soft(
@@ -237,6 +273,9 @@ with gr.Blocks(theme=custom_theme, css=custom_css, title="CareerBridge AI") as d
     gr.HTML(
         """
         <div id="header-banner">
+            <button id="theme-toggle-btn" onclick="document.documentElement.classList.toggle('dark')">
+                🌙 / ☀️ Theme
+            </button>
             <h1>CareerBridge AI</h1>
             <p>AI-powered career guidance for professionals returning to work after a career break.</p>
         </div>
@@ -244,7 +283,7 @@ with gr.Blocks(theme=custom_theme, css=custom_css, title="CareerBridge AI") as d
     )
 
     with gr.Row(equal_height=False):
-        # LEFT COLUMN
+        # LEFT COLUMN: INPUTS
         with gr.Column(scale=3):
             with gr.Group(elem_classes="card-section"):
                 gr.Markdown("### 👤 Your Career Profile")
@@ -293,9 +332,9 @@ with gr.Blocks(theme=custom_theme, css=custom_css, title="CareerBridge AI") as d
                 elem_id="analyze-button"
             )
 
-        # RIGHT COLUMN (OUTPUT)
-        with gr.Column(scale=2, elem_id="output-column"):
-            with gr.Group(elem_classes="card-section"):
+        # RIGHT COLUMN: OUTPUT
+        with gr.Column(scale=2):
+            with gr.Group(elem_classes="card-section", elem_id="output-card"):
                 gr.Markdown("### 💡 CareerBridge AI Analysis")
                 output = gr.Markdown(
                     value="Your personalized career analysis will appear here.",
